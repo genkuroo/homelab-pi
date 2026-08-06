@@ -1,0 +1,14 @@
+# Nightly, because the failure mode being defended against is an SD card
+# wearing out with no warning. Losing a day of stock history is recoverable
+# (re-fetch it); losing a campaign's worth of D&D notes is not.
+
+[Unit]
+Description=Nightly homelab database backup
+
+[Timer]
+OnCalendar=*-*-* 03:30
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

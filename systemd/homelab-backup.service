@@ -1,0 +1,12 @@
+[Unit]
+Description=Back up homelab SQLite databases
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/homelab
+ExecStart=/opt/homelab/scripts/backup.sh
+
+StandardOutput=journal
+StandardError=journal

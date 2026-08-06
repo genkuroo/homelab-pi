@@ -1,0 +1,139 @@
+# Self-hosted app stack for the Raspberry Pi 400.
+#
+# The shape of this file follows one rule: *public* and *private* are different
+# services, not different settings on the same service. Three of these apps hold
+# personal data (real holdings, real bodyweight); rather than trying to make one
+# instance safe for both audiences with a flag, the public instances run against
+# separate databases seeded with synthetic data. A misconfiguration then leaks
+# fake numbers, not real ones.
+#
+# Traffic paths:
+#   public   →  Cloudflare edge → cloudflared (outbound tunnel) → caddy → app
+#   private  →  Tailscale → 127.0.0.1:<port> on the Pi → app
+#
+# Note that no container publishes a port to 0.0.0.0, and the router has no
+# forwarded ports. The Pi is never directly addressable from the internet.
+
+name: homelab
+
+services:
+  # ---------------------------------------------------------------------
+  # Edge
+  # ---------------------------------------------------------------------
+
+  # Routes public hostnames to the right app container by Host header, so all
+  # three public sites share the tunnel. TLS is terminated at Cloudflare's edge,
+  # so Caddy speaks plain HTTP here — it never needs a cert of its own.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      - DOMAIN=${DOMAIN}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+    depends_on: [stock-demo, fitness-demo, dnd]
+
+  # Holds an outbound connection to Cloudflare. Because the tunnel dials out,
+  # there is nothing to port-forward and the home IP never appears in DNS.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks: [edge]
+    depends_on: [caddy]
+
+  # ---------------------------------------------------------------------
+  # Public — synthetic data, safe for anyone with the link
+  # ---------------------------------------------------------------------
+
+  # stocks.${DOMAIN}
+  # READ_ONLY additionally disables the mutating routes (/refresh,
+  # /watchlist/add, /watchlist/remove) so a visitor can't edit the demo either.
+  stock-demo:
+    build: ../stock-tracker
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+      - STOCK_DB=/data/stocks.db
+      - STOCK_TICKERS=/data/tickers.json
+      - DEMO=1          # entrypoint seeds synthetic data if the DB is empty
+      - READ_ONLY=1
+    volumes:
+      - stock_demo_data:/data
+    networks: [edge]
+
+  # fitness.${DOMAIN}
+  # READ_ONLY matters most here: /upload accepts a file and writes it to disk.
+  # That endpoint must never be reachable from the public internet.
+  fitness-demo:
+    build: ../fitness-dashboard
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+      - FITNESS_DB=/data/fitness.db
+      - DEMO=1
+      - READ_ONLY=1
+    volumes:
+      - fitness_demo_data:/data
+    networks: [edge]
+
+  # dnd.${DOMAIN} — the only app that goes public with real data, because it is
+  # the only one with real login/session auth already built in. Carried over
+  # from the Fly.io deployment; the Fly volume becomes a Docker volume.
+  dnd:
+    build: ../dnd-campaign-tracker
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+      - DND_DATA_DIR=/data
+      - SECRET_KEY=${DND_SECRET_KEY}
+    volumes:
+      - dnd_data:/data
+    networks: [edge]
+
+  # ---------------------------------------------------------------------
+  # Private — real data, reachable only over Tailscale
+  # ---------------------------------------------------------------------
+  # These bind to 127.0.0.1, so they are unreachable from the LAN, from the
+  # internet, and from the tunnel. `tailscale serve` (see scripts/bootstrap.sh)
+  # is what maps them onto your tailnet hostname.
+
+  stock:
+    build: ../stock-tracker
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+      - STOCK_DB=/data/stocks.db
+      - STOCK_TICKERS=/data/tickers.json
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - stock_data:/data
+    ports:
+      - "127.0.0.1:5001:8080"
+
+  fitness:
+    build: ../fitness-dashboard
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+      - FITNESS_DB=/data/fitness.db
+    volumes:
+      - fitness_data:/data
+      - ./imports:/app/imports   # drop CSV exports here from your laptop
+    ports:
+      - "127.0.0.1:5002:8080"
+
+networks:
+  edge:
+
+volumes:
+  caddy_data:
+  caddy_config:
+  stock_data:
+  stock_demo_data:
+  fitness_data:
+  fitness_demo_data:
+  dnd_data:

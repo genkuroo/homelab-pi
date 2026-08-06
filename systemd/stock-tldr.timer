@@ -1,0 +1,15 @@
+# Was: launchd Weekday=1 (Monday), 16:00 local.
+#
+# Persistent=true is worth more here than on the refresh job: this is the
+# once-a-week run, so a skipped one means no TLDR at all until the following
+# Monday. If the Pi was down Monday afternoon, it runs when the Pi comes back.
+
+[Unit]
+Description=Run stock-tracker weekly AI TLDR on Mondays
+
+[Timer]
+OnCalendar=Mon 16:10
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,48 @@
+# Caddy sits behind the Cloudflare tunnel and fans requests out by hostname.
+#
+# Why HTTP and not HTTPS here: cloudflared delivers requests to Caddy over the
+# Pi's internal Docker network, and TLS was already terminated at Cloudflare's
+# edge. Asking Caddy to get its own Let's Encrypt cert would mean solving an
+# ACME challenge for a host that isn't publicly reachable — it would fail, and
+# it would buy nothing. `http://` on these site blocks disables that attempt.
+
+{
+	# Cloudflare is the only thing that ever talks to us, so its forwarded
+	# header is the trustworthy source of the real visitor IP.
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+(common) {
+	encode gzip
+
+	# The apps are Flask behind gunicorn; these make the real client IP and
+	# scheme visible so generated URLs come out as https, not http.
+	header_up X-Real-IP {remote_host}
+	header_up X-Forwarded-Proto https
+}
+
+http://stocks.{$DOMAIN} {
+	reverse_proxy stock-demo:8080 {
+		import common
+	}
+}
+
+http://fitness.{$DOMAIN} {
+	reverse_proxy fitness-demo:8080 {
+		import common
+	}
+}
+
+http://dnd.{$DOMAIN} {
+	reverse_proxy dnd:8080 {
+		import common
+	}
+}
+
+# Anything else that reaches the tunnel gets a flat 404 rather than falling
+# through to whichever site happens to be listed first.
+http:// {
+	respond "Not found" 404
+}

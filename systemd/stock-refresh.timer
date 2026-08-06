@@ -1,0 +1,27 @@
+# Was: launchd StartCalendarInterval, daily at 16:00 local.
+#
+# Two deliberate differences from the Mac version:
+#
+#   1. Mon..Fri instead of every day. The old job ran weekends too and simply
+#      re-fetched Friday's closing prices. Harmless, but noise in the logs.
+#      Change to `*-*-* 16:05` if you want the original every-day behavior.
+#
+#   2. Persistent=true. launchd silently skipped the run if the Mac was asleep
+#      at 16:00 — probably the single biggest reason to move this to the Pi.
+#      With Persistent, a run missed while the Pi was off fires on next boot.
+#
+# 16:05 rather than 16:00: US markets close at 16:00 ET and yfinance needs a
+# moment to settle on a final close. Firing exactly at the bell tends to pick
+# up a last-second intraday quote instead.
+
+[Unit]
+Description=Run stock-tracker price refresh on weekday afternoons
+
+[Timer]
+OnCalendar=Mon..Fri 16:05
+Persistent=true
+# Avoid hammering Yahoo at the exact same second as everyone else's cron.
+RandomizedDelaySec=180
+
+[Install]
+WantedBy=timers.target

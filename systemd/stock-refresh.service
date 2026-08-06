@@ -1,0 +1,20 @@
+# Replaces the macOS launchd job com.stocktracker.refresh.
+#
+# Runs inside the already-running `stock` container rather than spawning a new
+# one, so it shares the same volume and the same Python environment the web app
+# is reading from — no risk of the job writing to a different database file than
+# the dashboard displays.
+
+[Unit]
+Description=stock-tracker price refresh (no AI)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/homelab
+ExecStart=/usr/bin/docker compose exec -T stock python tracker.py --no-ai
+
+# journalctl -u stock-refresh replaces tailing logs/refresh.log.
+StandardOutput=journal
+StandardError=journal

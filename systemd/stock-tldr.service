@@ -1,0 +1,18 @@
+# Replaces the macOS launchd job com.stocktracker.tldr.
+#
+# This is the run that costs money — it calls the Anthropic API to generate the
+# weekly TLDR. ANTHROPIC_API_KEY reaches it through the container's environment
+# (set from .env by compose), so the key is never written into a unit file.
+
+[Unit]
+Description=stock-tracker weekly AI TLDR
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/homelab
+ExecStart=/usr/bin/docker compose exec -T stock python tracker.py
+
+StandardOutput=journal
+StandardError=journal
