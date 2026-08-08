@@ -9,6 +9,73 @@ nightly database backups. A fourth service, `sleeper-bot`, is a Discord bot
 rather than a website: it makes only outbound connections and serves no traffic
 at all.
 
+## Architecture
+
+The Pi accepts **no inbound connections**. Nothing is port-forwarded on the
+router, and its public address appears in no DNS record. Every arrow below
+either starts at the Pi or arrives through a connection the Pi opened.
+
+```mermaid
+flowchart LR
+    visitors["Anyone with the link"]
+    players["D&D players"]
+    owner["Ethan's laptop & phone"]
+
+    cf["Cloudflare edge<br/>TLS terminates here"]
+    ts["Tailscale<br/>private network"]
+    discord["Discord + Sleeper APIs"]
+
+    subgraph pi["Raspberry Pi 400 — no open inbound ports"]
+        direction TB
+        cfd["cloudflared<br/>dials out, holds tunnel open"]
+        caddy["Caddy<br/>routes by hostname"]
+
+        subgraph public["Public — synthetic data, READ_ONLY=1"]
+            sdemo["stock-demo"]
+            fdemo["fitness-demo"]
+        end
+
+        dnd["dnd<br/>real data, has login auth"]
+
+        subgraph private["Private — real data, bound to 127.0.0.1"]
+            stock["stock"]
+            fitness["fitness"]
+        end
+
+        bot["sleeper-bot<br/>outbound only, no port"]
+        timers["systemd timers<br/>refresh, TLDR, backup"]
+    end
+
+    visitors --> cf
+    players --> cf
+    cf -.->|"encrypted tunnel"| cfd
+    cfd --> caddy
+    caddy -->|"stocks.gen-kuro.com"| sdemo
+    caddy -->|"fitness.gen-kuro.com"| fdemo
+    caddy -->|"dnd.gen-kuro.com"| dnd
+
+    owner --> ts
+    ts -.->|"tailscale serve"| stock
+    ts -.->|":8443"| fitness
+
+    bot -.->|"outbound"| discord
+    timers -->|"docker exec"| stock
+
+    classDef pub fill:#e8f4ff,stroke:#4a90d9,color:#123
+    classDef priv fill:#eaf7ea,stroke:#4caf50,color:#123
+    classDef edge fill:#fff4e5,stroke:#e8a33d,color:#123
+    class sdemo,fdemo pub
+    class stock,fitness priv
+    class cf,ts,cfd,caddy edge
+```
+
+**Reading it:** solid arrows are ordinary requests; dotted arrows are
+connections the Pi itself established. The public apps (blue) and the private
+apps (green) are separate containers running the *same image* against
+*different databases* — so a misconfiguration exposes generated data, not real
+data. `dnd` is the one app serving real data publicly, because it is the only
+one with its own login.
+
 ## The problem this solves
 
 The stock tracker's data refresh ran as a macOS `launchd` job. That has two
