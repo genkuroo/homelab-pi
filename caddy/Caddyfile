@@ -14,9 +14,12 @@
 	}
 }
 
-(common) {
-	encode gzip
-
+# Snippet imported INSIDE a reverse_proxy block, so it may only contain
+# reverse_proxy subdirectives. `encode` is a site-level directive and belongs in
+# the site block below — putting it here makes Caddy reject the whole config at
+# startup, which reads downstream as a 502 from Cloudflare rather than as a
+# config error.
+(proxyhdr) {
 	# The apps are Flask behind gunicorn; these make the real client IP and
 	# scheme visible so generated URLs come out as https, not http.
 	header_up X-Real-IP {remote_host}
@@ -24,20 +27,23 @@
 }
 
 http://stocks.{$DOMAIN} {
+	encode gzip
 	reverse_proxy stock-demo:8080 {
-		import common
+		import proxyhdr
 	}
 }
 
 http://fitness.{$DOMAIN} {
+	encode gzip
 	reverse_proxy fitness-demo:8080 {
-		import common
+		import proxyhdr
 	}
 }
 
 http://dnd.{$DOMAIN} {
+	encode gzip
 	reverse_proxy dnd:8080 {
-		import common
+		import proxyhdr
 	}
 }
 
