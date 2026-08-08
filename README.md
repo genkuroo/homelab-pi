@@ -102,9 +102,13 @@ docker compose logs -f sleeper-bot       # transaction alerts as they post
 - **SD card wear.** These apps write to SQLite constantly. Booting from a USB
   SSD is strongly preferred. On a card, the nightly backup is what stands
   between you and silent data loss.
-- **Strava OAuth.** The fitness dashboard's registered redirect URI points at
-  `localhost` and must be re-pointed at the Tailscale hostname before the
-  Strava sync works from the Pi.
+- **Fitness data arrives by file upload, not by API.** Every enabled source
+  (`strava_csv`, `mynetdiary`, `liftoff`) reads an export dropped into
+  `imports/`, so ingestion happens through the dashboard's `/upload` — which is
+  reachable only over Tailscale, since the public instance runs `READ_ONLY=1`.
+  There is no OAuth callback to configure: `strava.enabled` is `false` (Strava
+  paywalled its API in June 2026), and even the disabled API connector
+  authenticates with a `refresh_token` grant, which uses no redirect URI.
 - **`DND_SECRET_KEY` must be stable.** Regenerating it on deploy logs every
   player out.
 - **`sleeper_bot_data` is production state.** It is the only thing stopping the
