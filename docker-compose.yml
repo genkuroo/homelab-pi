@@ -126,6 +126,33 @@ services:
     ports:
       - "127.0.0.1:5002:8080"
 
+  # ---------------------------------------------------------------------
+  # Outbound only — no ingress at all
+  # ---------------------------------------------------------------------
+
+  # Posts Sleeper league transactions into Discord. It is neither public nor
+  # private in the sense the other services are: it publishes no port and joins
+  # no network here, because every connection it makes is outbound (a websocket
+  # to Discord, HTTPS polls to Sleeper). Nothing ever needs to reach it.
+  #
+  # The volume is not optional — it holds the record of which transactions have
+  # already been announced. Losing it makes the next start replay the week into
+  # the league's chat.
+  sleeper-bot:
+    build: ../sleeper-discord-bot
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+      - DATA_DIR=/data
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
+      - DISCORD_CHANNEL_ID=${DISCORD_CHANNEL_ID}
+      - SLEEPER_LEAGUE_ID=${SLEEPER_LEAGUE_ID}
+      - POLL_SECONDS=${SLEEPER_POLL_SECONDS:-300}
+      - ALERT_FAILED_WAIVERS=${SLEEPER_ALERT_FAILED_WAIVERS:-0}
+    volumes:
+      - sleeper_bot_data:/data
+
 networks:
   edge:
 
@@ -137,3 +164,4 @@ volumes:
   fitness_data:
   fitness_demo_data:
   dnd_data:
+  sleeper_bot_data:

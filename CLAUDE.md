@@ -5,10 +5,10 @@ Guidance for Claude Code when working in this repo.
 ## What this is
 
 Infrastructure-as-code for a self-hosted stack on a Raspberry Pi 400. It does
-not contain application code — it orchestrates three sibling repos in
-`~/Code/`: `stock-tracker`, `fitness-dashboard`, `dnd-campaign-tracker`.
-Compose build contexts point at `../<app>`, so a change to an app's Dockerfile
-is a change to this deployment.
+not contain application code — it orchestrates four sibling repos in
+`~/Code/`: `stock-tracker`, `fitness-dashboard`, `dnd-campaign-tracker` and
+`sleeper-discord-bot`. Compose build contexts point at `../<app>`, so a change
+to an app's Dockerfile is a change to this deployment.
 
 ## Invariants — don't break these
 
@@ -23,6 +23,10 @@ is a change to this deployment.
   (gitignored); `.env.example` documents the keys with empty values.
 - **`DND_SECRET_KEY` is stable state,** not a generated value. Rotating it logs
   out every player.
+- **`sleeper_bot_data` is stable state too.** It records which league
+  transactions have already been announced. Deleting the volume makes the bot
+  re-absorb history silently — but any change that makes it *replay* history
+  spams a real Discord channel, so treat the store as production data.
 
 ## Conventions
 
