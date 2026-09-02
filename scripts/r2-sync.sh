@@ -48,6 +48,9 @@ export RCLONE_CONFIG_R2_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
 export RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
 export RCLONE_CONFIG_R2_ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
 export RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true
+# All configuration comes from the environment, so point rclone at an empty
+# config rather than letting it warn nightly that it could not find one.
+export RCLONE_CONFIG=/dev/null
 
 # `-e NAME` with no value passes the variable through from this shell rather
 # than putting its value on the command line.
@@ -60,6 +63,7 @@ run_rclone() {
 		-e RCLONE_CONFIG_R2_SECRET_ACCESS_KEY \
 		-e RCLONE_CONFIG_R2_ENDPOINT \
 		-e RCLONE_CONFIG_R2_NO_CHECK_BUCKET \
+		-e RCLONE_CONFIG \
 		"$IMAGE" "$@"
 }
 
