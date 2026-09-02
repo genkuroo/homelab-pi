@@ -1,8 +1,16 @@
 # Once a day, early morning local time.
 #
-# 05:00 rather than midnight: FantasyCalc's values are derived from real trades
-# submitted by real people, so the board keeps moving through the evening. A
-# morning snapshot captures a settled day rather than one still in progress.
+# Not midnight: FantasyCalc's values are derived from real trades submitted by
+# real people, so the board keeps moving through the evening. A morning snapshot
+# captures a settled day rather than one still in progress.
+#
+# 03:00 specifically, so it lands *before* the 03:30 nightly backup and the
+# 04:15 R2 upload. Ordered the other way (this ran at 05:00 originally) each
+# night's archive contained the *previous* day's snapshot, leaving the newest
+# one sitting on the SD card alone for a full 26 hours -- exactly the window
+# this whole arrangement exists to close. Now it is about thirty minutes.
+# The backup timer jitters up to 600s from 03:30 and this one up to 600s from
+# 03:00, so the two cannot overlap.
 #
 # Persistent matters more here than on any other timer in the stack. A missed
 # league sync catches up automatically on the next run — Sleeper still has the
@@ -13,7 +21,7 @@
 Description=Snapshot fantasy market values daily
 
 [Timer]
-OnCalendar=*-*-* 05:00
+OnCalendar=*-*-* 03:00
 Persistent=true
 RandomizedDelaySec=600
 
