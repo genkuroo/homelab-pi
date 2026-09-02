@@ -40,10 +40,11 @@ flowchart LR
         subgraph private["Private — real data, bound to 127.0.0.1"]
             stock["stock"]
             fitness["fitness"]
+            ffta["ffta<br/>fantasy trade analyzer"]
         end
 
         bot["sleeper-bot<br/>outbound only, no port"]
-        timers["systemd timers<br/>refresh, TLDR, backup"]
+        timers["systemd timers<br/>refresh, TLDR, sync, values, backup"]
     end
 
     visitors --> cf
@@ -57,6 +58,7 @@ flowchart LR
     owner --> ts
     ts -.->|"tailscale serve"| stock
     ts -.->|":8443"| fitness
+    ts -.->|":8444"| ffta
 
     bot -.->|"outbound"| discord
     timers -->|"docker exec"| stock
@@ -153,13 +155,29 @@ and `dnd` pointing at `http://caddy:80`, and paste the tunnel token into
 ## Operating it
 
 ```bash
-systemctl list-timers 'stock-*'          # when do jobs next run
+systemctl list-timers 'stock-*' 'ffta-*' # when do jobs next run
 journalctl -u stock-refresh -f           # follow a job
+journalctl -u ffta-sync -f               # follow the league sync
 sudo systemctl start stock-refresh       # force a run now
+sudo systemctl start ffta-sync           # pull Sleeper right now
 docker compose ps                        # what's up
 docker compose logs -f dnd               # app logs
 docker compose logs -f sleeper-bot       # transaction alerts as they post
 ```
+
+### The two fantasy jobs
+
+`ffta-sync` runs every fifteen minutes, year round, and pulls league data only.
+`ffta-values` runs once a day at 05:00 and snapshots market values. They are
+split because they have different natural frequencies — a trade should appear
+quickly, while player values move on the order of a day — and because the value
+snapshots are a permanent historical record rather than a cache. FantasyCalc
+serves current values only, so a day missed is a day that cannot be recovered,
+which is why that timer sets `Persistent=true` and why `ffta_data` is in the
+nightly backup.
+
+Year round rather than in-season only: Money Hole is a *dynasty* league, and
+the offseason is its busiest trading window.
 
 ## Known caveats
 

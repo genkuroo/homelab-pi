@@ -1,0 +1,23 @@
+# Every fifteen minutes, year round.
+#
+# Two things drive the cadence. In season, the point is that a trade or waiver
+# shows up on the dashboard while people are still arguing about it. Out of
+# season, this is a *dynasty* league — the offseason is the busiest trading
+# window of the year, so there is no month where it is safe to stop looking.
+#
+# Fifteen minutes is deliberately slower than the Discord bot's five-minute
+# poll next door. The bot exists to break news; this exists to grade it, and a
+# grade does not get better for being ten minutes earlier.
+
+[Unit]
+Description=Sync Sleeper league data every 15 minutes
+
+[Timer]
+OnCalendar=*:0/15
+Persistent=true
+# Nothing else on the Pi cares, but this keeps the sync off the same second as
+# the backup and stock timers when they happen to coincide.
+RandomizedDelaySec=90
+
+[Install]
+WantedBy=timers.target

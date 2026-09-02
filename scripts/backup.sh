@@ -26,6 +26,11 @@ mkdir -p "$DEST"
 TARGETS=(
 	"stock:/data/stocks.db"
 	"fitness:/data/fitness.db"
+	# The league data here could be re-synced from Sleeper, but the daily
+	# market-value snapshots could not — FantasyCalc serves current values only
+	# and has no history endpoint. Losing this file loses the ability to grade a
+	# past trade against the values that were true when it was made.
+	"ffta:/data/ffta.db"
 )
 
 backup_one() {

@@ -1,0 +1,21 @@
+# Snapshots player and draft-pick market values from FantasyCalc.
+#
+# Kept separate from the league sync because the two have genuinely different
+# natural frequencies, and because this one is the historically interesting
+# record: values are stored by date and never overwritten, so grading a trade
+# later can use the values that were true on the day it was made rather than
+# today's. Missing a day leaves a hole in that history, which is why the timer
+# sets Persistent=true.
+
+[Unit]
+Description=ff-trade-analyzer market value snapshot
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/homelab
+ExecStart=/usr/bin/docker compose exec -T ffta python cli.py values
+
+StandardOutput=journal
+StandardError=journal

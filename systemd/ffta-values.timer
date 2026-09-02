@@ -1,0 +1,21 @@
+# Once a day, early morning local time.
+#
+# 05:00 rather than midnight: FantasyCalc's values are derived from real trades
+# submitted by real people, so the board keeps moving through the evening. A
+# morning snapshot captures a settled day rather than one still in progress.
+#
+# Persistent matters more here than on any other timer in the stack. A missed
+# league sync catches up automatically on the next run — Sleeper still has the
+# transaction. A missed value snapshot is gone for good; FantasyCalc serves
+# current values only, with no history endpoint to backfill from.
+
+[Unit]
+Description=Snapshot fantasy market values daily
+
+[Timer]
+OnCalendar=*-*-* 05:00
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

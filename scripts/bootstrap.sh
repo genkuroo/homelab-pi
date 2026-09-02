@@ -50,7 +50,7 @@ fi
 echo "==> Installing systemd timers"
 sudo cp systemd/*.service systemd/*.timer /etc/systemd/system/
 sudo systemctl daemon-reload
-for t in stock-refresh stock-tldr homelab-backup; do
+for t in stock-refresh stock-tldr ffta-sync ffta-values homelab-backup; do
 	sudo systemctl enable --now "${t}.timer"
 done
 
@@ -63,6 +63,10 @@ echo "==> Exposing the private dashboards on your tailnet"
 # so it is https in the browser with no warnings.
 sudo tailscale serve --bg --https 443 http://127.0.0.1:5001   # stock  (real)
 sudo tailscale serve --bg --https 8443 http://127.0.0.1:5002  # fitness (real)
+# The fantasy analyzer is here rather than public for a different reason than
+# the other two: its data is not personal, but it republishes nine other
+# league members' names and teams and it has no login of its own.
+sudo tailscale serve --bg --https 8444 http://127.0.0.1:5003  # fantasy (real)
 
 cat <<EOF
 
@@ -76,8 +80,9 @@ Public (anyone with the link, synthetic data):
 Private (your devices only, real data):
   https://\$(tailscale status --json | grep -o '"DNSName":"[^"]*' | head -1 | cut -d'"' -f4 | sed 's/\.$//')
   ...same host on :8443 for fitness
+  ...same host on :8444 for the fantasy trade analyzer
 
-Check the schedule:   systemctl list-timers 'stock-*' homelab-backup.timer
+Check the schedule:   systemctl list-timers 'stock-*' 'ffta-*' homelab-backup.timer
 Follow the logs:      journalctl -u stock-refresh -f
 Force a run now:      sudo systemctl start stock-refresh.service
 EOF

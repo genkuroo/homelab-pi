@@ -126,6 +126,31 @@ services:
     ports:
       - "127.0.0.1:5002:8080"
 
+  # Fantasy football roster grader and trade analyzer for Sleeper leagues.
+  #
+  # Private rather than public, on purpose. Its data is not personal in the way
+  # the stock and fitness databases are, but it does republish nine other
+  # people's names and teams, and unlike `dnd` it has no login. It is real data
+  # with no auth, so it stays on the tailnet. Making it public later means
+  # adding a Caddy site block and moving this to the `edge` network — the app
+  # itself already has no mutating routes.
+  #
+  # The systemd timers `docker compose exec` into this container rather than
+  # running a throwaway one, so the sync writes the same SQLite file the
+  # dashboard reads.
+  ffta:
+    build: ../ff-trade-analyzer
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+      - FFTA_DB=/data/ffta.db
+      - FFTA_CACHE=/data/cache
+      - FFTA_LEAGUES=${FFTA_LEAGUES}
+    volumes:
+      - ffta_data:/data
+    ports:
+      - "127.0.0.1:5003:8080"
+
   # ---------------------------------------------------------------------
   # Outbound only — no ingress at all
   # ---------------------------------------------------------------------
@@ -164,4 +189,5 @@ volumes:
   fitness_data:
   fitness_demo_data:
   dnd_data:
+  ffta_data:
   sleeper_bot_data:

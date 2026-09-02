@@ -5,10 +5,10 @@ Guidance for Claude Code when working in this repo.
 ## What this is
 
 Infrastructure-as-code for a self-hosted stack on a Raspberry Pi 400. It does
-not contain application code — it orchestrates four sibling repos in
-`~/Code/`: `stock-tracker`, `fitness-dashboard`, `dnd-campaign-tracker` and
-`sleeper-discord-bot`. Compose build contexts point at `../<app>`, so a change
-to an app's Dockerfile is a change to this deployment.
+not contain application code — it orchestrates five sibling repos in
+`~/Code/`: `stock-tracker`, `fitness-dashboard`, `dnd-campaign-tracker`,
+`sleeper-discord-bot` and `ff-trade-analyzer`. Compose build contexts point at
+`../<app>`, so a change to an app's Dockerfile is a change to this deployment.
 
 ## Invariants — don't break these
 
@@ -27,6 +27,16 @@ to an app's Dockerfile is a change to this deployment.
   transactions have already been announced. Deleting the volume makes the bot
   re-absorb history silently — but any change that makes it *replay* history
   spams a real Discord channel, so treat the store as production data.
+- **`ffta_data` holds one thing that cannot be rebuilt.** Its league data can
+  always be re-synced from Sleeper, but its daily market-value snapshots
+  cannot: FantasyCalc serves current values only and has no history endpoint.
+  Those snapshots are what let a trade be graded against the values that were
+  true on the day it was made, so the volume is backed up and `ffta-values`
+  sets `Persistent=true` for the same reason.
+- **`ffta` stays off the tunnel.** Not because the data is personal, but
+  because it republishes nine other league members' names and teams and has no
+  login. Public would mean a Caddy site block plus the `edge` network; the app
+  has no mutating routes, so nothing else would need to change.
 
 ## Conventions
 

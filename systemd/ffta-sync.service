@@ -1,0 +1,26 @@
+# Pulls new Sleeper league data (trades, waivers, weekly scoring) into the
+# analyzer's database.
+#
+# Runs inside the already-running `ffta` container rather than spawning a new
+# one, so it writes the same SQLite file on the same volume that the dashboard
+# reads from. A fresh `docker compose run` would get its own anonymous volume
+# and the dashboard would never see the results.
+#
+# --no-values because market values are a separate, slower schedule
+# (ffta-values.timer). Re-snapshotting them every fifteen minutes would just
+# overwrite the day's record with a near-identical one, and would hammer a free
+# API for nothing.
+
+[Unit]
+Description=ff-trade-analyzer league sync (no value snapshot)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/homelab
+ExecStart=/usr/bin/docker compose exec -T ffta python cli.py sync --no-values
+
+# journalctl -u ffta-sync
+StandardOutput=journal
+StandardError=journal
