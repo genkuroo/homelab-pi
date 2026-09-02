@@ -165,6 +165,18 @@ docker compose logs -f dnd               # app logs
 docker compose logs -f sleeper-bot       # transaction alerts as they post
 ```
 
+### The one password-protected site
+
+`fantasy.${DOMAIN}` serves the trade analyzer publicly, behind HTTP basic auth.
+It is the only site treated this way, and the reason is narrow: it shows real
+rosters and the real display names of nine other people, and unlike `dnd` the
+app has no login of its own. Those names are already public on Sleeper — what a
+shared credential prevents is a stranger indexing the whole league in one page.
+
+The bcrypt hash lives in `.env`, never in the committed Caddyfile, since a
+published hash is an offline cracking target. Note the `$`-doubling requirement
+documented in `.env.example`; getting it wrong produces a silent 401.
+
 ### Off-site backup
 
 Most of this stack can be rebuilt after a total loss: Sleeper still has the

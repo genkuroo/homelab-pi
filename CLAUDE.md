@@ -39,10 +39,24 @@ not contain application code — it orchestrates five sibling repos in
   Those snapshots are what let a trade be graded against the values that were
   true on the day it was made, so the volume is backed up and `ffta-values`
   sets `Persistent=true` for the same reason.
-- **`ffta` stays off the tunnel.** Not because the data is personal, but
-  because it republishes nine other league members' names and teams and has no
-  login. Public would mean a Caddy site block plus the `edge` network; the app
-  has no mutating routes, so nothing else would need to change.
+- **`ffta` is public only behind basic auth.** It is reachable two ways: the
+  tailnet via its `127.0.0.1` binding, and `fantasy.${DOMAIN}` through Caddy
+  with a shared password. The password is the whole protection — it republishes
+  nine other league members' names and the app has no login of its own. Do not
+  remove the `basic_auth` block to "simplify" the Caddyfile.
+
+## Gotchas that cost real debugging time
+
+- **Double every `$` in a bcrypt hash written to `.env`.** Compose interpolates
+  values it reads from `.env`, so `$2a$14$w1kHv...` loses `$w1kHv...` as an
+  undefined variable and Caddy receives a truncated hash. The failure mode is a
+  silent 401 with nothing in any log. Verify with
+  `docker compose exec caddy printenv FFTA_AUTH_HASH`, which shows what the
+  container actually got — not `docker compose config`, which re-escapes `$` for
+  display and looks wrong even when it is right.
+- **`encode` is site-level and cannot live in a snippet imported inside
+  `reverse_proxy`.** Caddy refuses the whole config, which surfaces downstream
+  as a generic 502 from Cloudflare with nothing pointing at a parse error.
 
 ## Conventions
 
