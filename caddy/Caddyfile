@@ -47,6 +47,26 @@ http://dnd.{$DOMAIN} {
 	}
 }
 
+# fantasy.{$DOMAIN} — the trade analyzer.
+#
+# The only public site behind a password. It shows real rosters and the real
+# display names of nine other people, and unlike `dnd` the app has no login of
+# its own, so a shared credential is what stands between the league and anyone
+# who guesses the subdomain. Those names are already public on Sleeper; the
+# thing worth preventing is a stranger indexing the whole league in one page.
+#
+# The bcrypt hash lives in .env rather than here, because this file is committed
+# to a public repo and a published hash is an offline cracking target.
+http://fantasy.{$DOMAIN} {
+	encode gzip
+	basic_auth {
+		{$FFTA_AUTH_USER} {$FFTA_AUTH_HASH}
+	}
+	reverse_proxy ffta:8080 {
+		import proxyhdr
+	}
+}
+
 # Anything else that reaches the tunnel gets a flat 404 rather than falling
 # through to whichever site happens to be listed first.
 http:// {

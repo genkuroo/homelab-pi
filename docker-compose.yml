@@ -29,12 +29,16 @@ services:
     restart: unless-stopped
     environment:
       - DOMAIN=${DOMAIN}
+      # Caddy substitutes these into the Caddyfile at parse time, which keeps
+      # the credential out of a public repo.
+      - FFTA_AUTH_USER=${FFTA_AUTH_USER:-moneyhole}
+      - FFTA_AUTH_HASH=${FFTA_AUTH_HASH}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     networks: [edge]
-    depends_on: [stock-demo, fitness-demo, dnd]
+    depends_on: [stock-demo, fitness-demo, dnd, ffta]
 
   # Holds an outbound connection to Cloudflare. Because the tunnel dials out,
   # there is nothing to port-forward and the home IP never appears in DNS.
@@ -128,12 +132,11 @@ services:
 
   # Fantasy football roster grader and trade analyzer for Sleeper leagues.
   #
-  # Private rather than public, on purpose. Its data is not personal in the way
-  # the stock and fitness databases are, but it does republish nine other
-  # people's names and teams, and unlike `dnd` it has no login. It is real data
-  # with no auth, so it stays on the tailnet. Making it public later means
-  # adding a Caddy site block and moving this to the `edge` network — the app
-  # itself already has no mutating routes.
+  # Reachable two ways, deliberately. Privately on the tailnet via the
+  # 127.0.0.1 binding, and publicly at fantasy.${DOMAIN} through Caddy — but
+  # that public route sits behind HTTP basic auth, because the page republishes
+  # nine other people's names and the app has no login of its own. It joins
+  # `edge` so Caddy can reach it; it still publishes no port to the LAN.
   #
   # The systemd timers `docker compose exec` into this container rather than
   # running a throwaway one, so the sync writes the same SQLite file the
@@ -148,6 +151,7 @@ services:
       - FFTA_LEAGUES=${FFTA_LEAGUES}
     volumes:
       - ffta_data:/data
+    networks: [edge]
     ports:
       - "127.0.0.1:5003:8080"
 
