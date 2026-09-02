@@ -50,7 +50,7 @@ fi
 echo "==> Installing systemd timers"
 sudo cp systemd/*.service systemd/*.timer /etc/systemd/system/
 sudo systemctl daemon-reload
-for t in stock-refresh stock-tldr ffta-sync ffta-values homelab-backup; do
+for t in stock-refresh stock-tldr ffta-sync ffta-values ffta-r2-sync homelab-backup; do
 	sudo systemctl enable --now "${t}.timer"
 done
 
@@ -83,6 +83,7 @@ Private (your devices only, real data):
   ...same host on :8444 for the fantasy trade analyzer
 
 Check the schedule:   systemctl list-timers 'stock-*' 'ffta-*' homelab-backup.timer
+Off-site backup:      ./scripts/r2-sync.sh verify   (needs R2_* in .env)
 Follow the logs:      journalctl -u stock-refresh -f
 Force a run now:      sudo systemctl start stock-refresh.service
 EOF

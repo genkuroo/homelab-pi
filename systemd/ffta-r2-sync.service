@@ -1,0 +1,19 @@
+# Copies the ff-trade-analyzer backups to Cloudflare R2.
+#
+# Separate from homelab-backup.service on purpose: making a backup and shipping
+# it off the device are different failures. A network blip or an expired R2
+# token should never make the nightly backup itself look like it failed.
+
+[Unit]
+Description=Copy ff-trade-analyzer backups to Cloudflare R2
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/homelab
+ExecStart=/opt/homelab/scripts/r2-sync.sh
+
+StandardOutput=journal
+StandardError=journal

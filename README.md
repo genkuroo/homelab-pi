@@ -165,6 +165,33 @@ docker compose logs -f dnd               # app logs
 docker compose logs -f sleeper-bot       # transaction alerts as they post
 ```
 
+### Off-site backup
+
+Most of this stack can be rebuilt after a total loss: Sleeper still has the
+transactions, yfinance still has the prices. One thing cannot. The trade
+analyzer's daily market-value snapshots come from an API that serves current
+values only and has no history endpoint, so a snapshot that is lost is gone for
+good — and a season of them is what makes "grade this October trade at October's
+prices" possible instead of hindsight.
+
+So `ffta-r2-sync` ships that one database to a Cloudflare R2 bucket nightly at
+04:15. It uploads **only** `ffta-*.db.gz`: the same folder holds real bodyweight
+history and real stock holdings, and those deliberately never leave the Pi.
+
+`rclone` runs in a throwaway container and is configured entirely through
+environment variables, so no config file is written and no secret appears in a
+command line. `rclone copy` never deletes at the destination, so local backups
+can keep pruning at 14 days while R2 accumulates the full archive — a few
+hundred MB a year against a 10 GB free tier.
+
+```bash
+./scripts/r2-sync.sh          # upload anything new
+./scripts/r2-sync.sh verify   # list what is actually in the bucket
+```
+
+Without `R2_*` set in `.env` the job prints a note and exits cleanly, so the
+timer is safe to enable before the bucket exists.
+
 ### The two fantasy jobs
 
 `ffta-sync` runs every fifteen minutes, year round, and pulls league data only.
@@ -186,7 +213,11 @@ the offseason is its busiest trading window.
   shifts the refresh by hours rather than failing loudly.
 - **SD card wear.** These apps write to SQLite constantly. Booting from a USB
   SSD is strongly preferred. On a card, the nightly backup is what stands
-  between you and silent data loss.
+  between you and silent data loss — and until recently that backup was on the
+  same card, which is no backup at all against the failure it was defending
+  against. `ffta-r2-sync` now copies the one irreplaceable database off the
+  device nightly (see below); everything else is still card-only and would have
+  to be re-fetched from source after a failure.
 - **Fitness data arrives by file upload, not by API.** Every enabled source
   (`strava_csv`, `mynetdiary`, `liftoff`) reads an export dropped into
   `imports/`, so ingestion happens through the dashboard's `/upload` — which is

@@ -1,0 +1,22 @@
+# 04:15, comfortably after the nightly backup.
+#
+# homelab-backup.timer fires at 03:30 with up to 600s of jitter, so it has
+# finished well before this. Ordering is belt-and-braces rather than load
+# bearing: `rclone copy` only transfers files that are not already at the
+# destination, so running early simply uploads one fewer file and the next
+# night catches it.
+#
+# Persistent matters for the same reason it does on ffta-values: the snapshots
+# this is protecting cannot be regenerated, so a run missed while the Pi was off
+# should happen at next boot rather than be skipped.
+
+[Unit]
+Description=Ship ff-trade-analyzer backups off the SD card nightly
+
+[Timer]
+OnCalendar=*-*-* 04:15
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

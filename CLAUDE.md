@@ -27,6 +27,12 @@ not contain application code — it orchestrates five sibling repos in
   transactions have already been announced. Deleting the volume makes the bot
   re-absorb history silently — but any change that makes it *replay* history
   spams a real Discord channel, so treat the store as production data.
+- **The Pi boots from an SD card and the backups live on it.** `/opt/homelab/backups`
+  is on the same device as the live databases, so a card failure takes both.
+  `ffta-r2-sync` is the mitigation: it copies the analyzer's backups to
+  Cloudflare R2 nightly. It uploads **ffta only** — the same folder holds real
+  bodyweight history and real stock holdings, and those stay in the house.
+  Do not widen the `--include` filter without asking.
 - **`ffta_data` holds one thing that cannot be rebuilt.** Its league data can
   always be re-synced from Sleeper, but its daily market-value snapshots
   cannot: FantasyCalc serves current values only and has no history endpoint.
@@ -47,6 +53,9 @@ not contain application code — it orchestrates five sibling repos in
   risks writing to a different database than the dashboard reads.
 - Back up SQLite with the `sqlite3` backup API, never `cp`. A file copy of a
   live database can capture a torn write.
+- Local backups prune at 14 days; R2 uses `rclone copy`, which never deletes at
+  the destination. That split is intentional — the card holds the recent working
+  copy, R2 is the permanent archive.
 - Comments explain *why*, matching the style of the sibling app repos.
 
 ## Testing changes
