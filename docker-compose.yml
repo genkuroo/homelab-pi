@@ -151,7 +151,9 @@ services:
       - FFTA_LEAGUES=${FFTA_LEAGUES}
     volumes:
       - ffta_data:/data
-    networks: [edge]
+    # `edge` so Caddy can reach it; `analytics` so the Discord bot can, without
+    # putting the bot on the same network as the tunnel.
+    networks: [edge, analytics]
     ports:
       - "127.0.0.1:5003:8080"
 
@@ -159,10 +161,11 @@ services:
   # Outbound only — no ingress at all
   # ---------------------------------------------------------------------
 
-  # Posts Sleeper league transactions into Discord. It is neither public nor
-  # private in the sense the other services are: it publishes no port and joins
-  # no network here, because every connection it makes is outbound (a websocket
-  # to Discord, HTTPS polls to Sleeper). Nothing ever needs to reach it.
+  # Posts Sleeper league transactions into Discord, and serves the trade-grading
+  # slash commands. It still publishes no port -- nothing ever needs to reach
+  # *it* -- but it now joins `analytics` so it can reach the trade analyzer for
+  # /power, /tradecheck and /grades. Deliberately not `edge`: it has no business
+  # talking to Caddy or the tunnel.
   #
   # The volume is not optional — it holds the record of which transactions have
   # already been announced. Losing it makes the next start replay the week into
@@ -179,11 +182,17 @@ services:
       - SLEEPER_LEAGUE_ID=${SLEEPER_LEAGUE_ID}
       - POLL_SECONDS=${SLEEPER_POLL_SECONDS:-300}
       - ALERT_FAILED_WAIVERS=${SLEEPER_ALERT_FAILED_WAIVERS:-0}
+      # Optional. Unset, the grading commands say so and the alerts carry on.
+      - FFTA_URL=${FFTA_URL:-http://ffta:8080}
     volumes:
       - sleeper_bot_data:/data
+    networks: [analytics]
 
 networks:
   edge:
+  # Internal only: no host ports, no tunnel. Its whole job is letting the
+  # Discord bot ask the trade analyzer for a grade.
+  analytics:
 
 volumes:
   caddy_data:
