@@ -184,6 +184,9 @@ services:
       - ALERT_FAILED_WAIVERS=${SLEEPER_ALERT_FAILED_WAIVERS:-0}
       # Optional. Unset, the grading commands say so and the alerts carry on.
       - FFTA_URL=${FFTA_URL:-http://ffta:8080}
+      # The public link /site hands out -- a different value from FFTA_URL on
+      # purpose, since that one only resolves inside this compose network.
+      - FFTA_SITE_URL=${FFTA_SITE_URL:-https://fantasy.${DOMAIN}}
     volumes:
       - sleeper_bot_data:/data
     networks: [analytics]
