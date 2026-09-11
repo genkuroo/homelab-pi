@@ -13,10 +13,9 @@
 		trusted_proxies static private_ranges
 	}
 
-	# replace_response is a third-party directive (compiled in via caddy/Dockerfile),
-	# so Caddy needs to be told where it sits in the handler chain. "after encode"
-	# means it rewrites the response body *before* gzip runs on it.
-	order replace_response after encode
+	# The replace-response module (compiled in via caddy/Dockerfile) registers
+	# its `replace` directive and self-orders it after `encode`, so the response
+	# body is rewritten before gzip runs on it — no `order` line needed here.
 }
 
 # Snippet imported INSIDE a reverse_proxy block, so it may only contain
@@ -40,9 +39,10 @@
 #
 # The replacement text must contain no { or } — Caddy reads those as placeholders
 # even inside a backtick string — so the button is styled with an inline style
-# attribute rather than a <style> block.
+# attribute rather than a <style> block. The directive is `replace` (the
+# replace-response module's name), not `replace_response`.
 (homelink) {
-	replace_response `</body>` `<a href="https://{$DOMAIN}/" aria-label="All apps" style="position:fixed;z-index:2147483647;right:14px;bottom:14px;padding:9px 14px;border-radius:999px;background:#111827;color:#fff;font:600 13px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;text-decoration:none;border:1px solid rgba(255,255,255,.16);box-shadow:0 3px 14px rgba(0,0,0,.32)">&#9776;&nbsp; all apps</a></body>`
+	replace `</body>` `<a href="https://{$DOMAIN}/" aria-label="All apps" style="position:fixed;z-index:2147483647;right:14px;bottom:14px;padding:9px 14px;border-radius:999px;background:#111827;color:#fff;font:600 13px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;text-decoration:none;border:1px solid rgba(255,255,255,.16);box-shadow:0 3px 14px rgba(0,0,0,.32)">&#9776;&nbsp; all apps</a></body>`
 }
 
 # ---------------------------------------------------------------------------

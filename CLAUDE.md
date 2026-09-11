@@ -62,12 +62,15 @@ not contain application code — it orchestrates five sibling repos in
   `docker compose build caddy` must run on the Pi (it needs network for the Go
   module fetch) before the new config works — `docker compose up -d caddy`
   alone will reuse the old image.
+- **The replace-response directive is `replace`, not `replace_response`,** and
+  it self-orders after `encode` — no `order` line in the global options. An
+  older syntax used `replace_response` plus a manual `order`; with the current
+  module that fails at startup as `replace_response is not a registered
+  directive`, which surfaces as a blanket 502 from Cloudflare.
 - **The `(homelink)` replacement string must contain no `{` or `}`.** Caddy
   treats braces as placeholders even inside a backtick string, so the injected
   button is styled with an inline `style="..."` attribute, never a `<style>`
-  block. `replace-response` also needs `order replace_response after encode` in
-  the global options — without it Caddy can't place the directive and rejects
-  the config.
+  block.
 
 ## Conventions
 
