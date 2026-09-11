@@ -1,0 +1,12 @@
+[Unit]
+Description=System-wide health check for the homelab stack
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/homelab
+ExecStart=/opt/homelab/scripts/healthcheck.sh
+
+StandardOutput=journal
+StandardError=journal

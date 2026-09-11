@@ -1,0 +1,25 @@
+# Hourly. Every other timer in this stack is protecting against data loss --
+# this one is protecting against silent failure, the kind `docker compose ps`
+# structurally can't see: a container reporting "Up" with dead DNS baked into
+# it, or a scheduled job that failed with nobody watching. An hour catches
+# that kind of drift within a fair window without hammering the six public
+# endpoints the script curls on every run.
+#
+# :05 past the hour, not :00, so it never coincides with ffta-sync's
+# every-15-minutes runs at :00/:15/:30/:45.
+#
+# Persistent=true anyway, for consistency with every other timer here --
+# though unlike the backup or market-value snapshots, a health check missed
+# while the Pi was off has nothing to catch up on. The next run just sees
+# current state, which is all this was ever reporting.
+
+[Unit]
+Description=Hourly system-wide health check
+
+[Timer]
+OnCalendar=*-*-* *:05:00
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target
