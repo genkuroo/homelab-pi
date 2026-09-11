@@ -21,11 +21,15 @@ services:
   # Edge
   # ---------------------------------------------------------------------
 
-  # Routes public hostnames to the right app container by Host header, so all
-  # three public sites share the tunnel. TLS is terminated at Cloudflare's edge,
-  # so Caddy speaks plain HTTP here — it never needs a cert of its own.
+  # Routes public hostnames to the right app container by Host header, so every
+  # public site shares the tunnel. TLS is terminated at Cloudflare's edge, so
+  # Caddy speaks plain HTTP here — it never needs a cert of its own.
+  #
+  # Built from ./caddy rather than pulled: the image is stock Caddy plus the
+  # replace-response module, which injects the "all apps" link into every
+  # proxied page (see caddy/Dockerfile and the (homelink) snippet).
   caddy:
-    image: caddy:2-alpine
+    build: ./caddy
     restart: unless-stopped
     environment:
       - DOMAIN=${DOMAIN}
@@ -35,6 +39,7 @@ services:
       - FFTA_AUTH_HASH=${FFTA_AUTH_HASH}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/site:/srv:ro          # the static launcher served at the apex
       - caddy_data:/data
       - caddy_config:/config
     networks: [edge]

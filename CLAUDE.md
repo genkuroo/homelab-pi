@@ -57,6 +57,17 @@ not contain application code — it orchestrates five sibling repos in
 - **`encode` is site-level and cannot live in a snippet imported inside
   `reverse_proxy`.** Caddy refuses the whole config, which surfaces downstream
   as a generic 502 from Cloudflare with nothing pointing at a parse error.
+- **Caddy is a local build, not the stock image.** `caddy/Dockerfile` compiles
+  in `replace-response`. `caddy` in the compose file is `build: ./caddy`, so
+  `docker compose build caddy` must run on the Pi (it needs network for the Go
+  module fetch) before the new config works — `docker compose up -d caddy`
+  alone will reuse the old image.
+- **The `(homelink)` replacement string must contain no `{` or `}`.** Caddy
+  treats braces as placeholders even inside a backtick string, so the injected
+  button is styled with an inline `style="..."` attribute, never a `<style>`
+  block. `replace-response` also needs `order replace_response after encode` in
+  the global options — without it Caddy can't place the directive and rejects
+  the config.
 
 ## Conventions
 

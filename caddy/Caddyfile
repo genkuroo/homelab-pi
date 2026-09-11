@@ -12,6 +12,11 @@
 	servers {
 		trusted_proxies static private_ranges
 	}
+
+	# replace_response is a third-party directive (compiled in via caddy/Dockerfile),
+	# so Caddy needs to be told where it sits in the handler chain. "after encode"
+	# means it rewrites the response body *before* gzip runs on it.
+	order replace_response after encode
 }
 
 # Snippet imported INSIDE a reverse_proxy block, so it may only contain
@@ -26,8 +31,45 @@
 	header_up X-Forwarded-Proto https
 }
 
+# Injected into every proxied HTML page, right before </body>: one fixed-position
+# link back to the launcher at the apex domain. None of the four apps carries
+# this link in its own templates and they live in four separate repos, so doing
+# it here keeps the "go to another app" affordance in one place — and any app
+# added later gets it for free. Non-HTML responses (JSON, HTMX fragments, static
+# assets) never contain </body>, so they pass through untouched.
+#
+# The replacement text must contain no { or } — Caddy reads those as placeholders
+# even inside a backtick string — so the button is styled with an inline style
+# attribute rather than a <style> block.
+(homelink) {
+	replace_response `</body>` `<a href="https://{$DOMAIN}/" aria-label="All apps" style="position:fixed;z-index:2147483647;right:14px;bottom:14px;padding:9px 14px;border-radius:999px;background:#111827;color:#fff;font:600 13px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;text-decoration:none;border:1px solid rgba(255,255,255,.16);box-shadow:0 3px 14px rgba(0,0,0,.32)">&#9776;&nbsp; all apps</a></body>`
+}
+
+# ---------------------------------------------------------------------------
+# The launcher
+# ---------------------------------------------------------------------------
+
+# gen-kuro.com — a static page linking to every public app, and the page the
+# injected "all apps" button points back to. Served straight off the
+# ./caddy/site bind mount; no upstream app is involved.
+http://{$DOMAIN} {
+	encode gzip
+	root * /srv
+	file_server
+}
+
+# Send the www form to the bare domain so both work.
+http://www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}
+
+# ---------------------------------------------------------------------------
+# The apps
+# ---------------------------------------------------------------------------
+
 http://stocks.{$DOMAIN} {
 	encode gzip
+	import homelink
 	reverse_proxy stock-demo:8080 {
 		import proxyhdr
 	}
@@ -35,6 +77,7 @@ http://stocks.{$DOMAIN} {
 
 http://fitness.{$DOMAIN} {
 	encode gzip
+	import homelink
 	reverse_proxy fitness-demo:8080 {
 		import proxyhdr
 	}
@@ -42,6 +85,7 @@ http://fitness.{$DOMAIN} {
 
 http://dnd.{$DOMAIN} {
 	encode gzip
+	import homelink
 	reverse_proxy dnd:8080 {
 		import proxyhdr
 	}
@@ -62,6 +106,7 @@ http://fantasy.{$DOMAIN} {
 	basic_auth {
 		{$FFTA_AUTH_USER} {$FFTA_AUTH_HASH}
 	}
+	import homelink
 	reverse_proxy ffta:8080 {
 		import proxyhdr
 	}

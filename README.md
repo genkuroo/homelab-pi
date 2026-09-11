@@ -130,10 +130,26 @@ unreliable. Timers also log to `journald` instead of an ever-growing logfile.
 ```
 docker-compose.yml     services, volumes, which instance is public vs private
 caddy/Caddyfile        routes public hostnames to containers by Host header
+caddy/Dockerfile       stock Caddy + the replace-response module
+caddy/site/index.html  the static launcher served at the apex domain
 systemd/               timers replacing the old launchd plists + backups
 scripts/bootstrap.sh   one-time Pi setup, idempotent
 scripts/backup.sh      nightly consistent SQLite snapshots
 ```
+
+## The launcher
+
+`https://${DOMAIN}` (the bare domain) serves a static page — `caddy/site/index.html` —
+that links to all four public apps. It has no backend; Caddy serves the file
+directly off a bind mount.
+
+Getting *back* to it from an app is handled without touching any of the four app
+repos. Caddy is built with the
+[`replace-response`](https://github.com/caddyserver/replace-response) module and
+rewrites every proxied HTML page on the way out, injecting one fixed-position
+"☰ all apps" link just before `</body>`. Non-HTML responses (JSON, HTMX
+fragments, static assets) never contain `</body>`, so they pass straight
+through, and any app added to the stack later gets the link for free.
 
 ## Setup
 
@@ -148,9 +164,19 @@ cp .env.example .env && nano .env     # DOMAIN, TZ, API keys
 ```
 
 Then create the tunnel in the Cloudflare dashboard
-(Zero Trust → Networks → Tunnels), add public hostnames `stocks`, `fitness`
-and `dnd` pointing at `http://caddy:80`, and paste the tunnel token into
-`.env`.
+(Zero Trust → Networks → Tunnels) and paste its token into `.env`. Add these
+public hostnames, all pointing at `http://caddy:80`:
+
+| Subdomain | Serves |
+|---|---|
+| *(blank — the apex)* | the launcher |
+| `stocks` | stock-tracker demo |
+| `fitness` | fitness-dashboard demo |
+| `dnd` | D&D campaign tracker |
+| `fantasy` | trade analyzer (basic auth) |
+
+Caddy routes by `Host` header, so the apex entry is what makes
+`https://${DOMAIN}` reach the launcher rather than the catch-all 404.
 
 ## Operating it
 

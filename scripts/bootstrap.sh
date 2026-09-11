@@ -72,10 +72,12 @@ cat <<EOF
 
 Done.
 
-Public (anyone with the link, synthetic data):
-  https://stocks.${DOMAIN}
-  https://fitness.${DOMAIN}
-  https://dnd.${DOMAIN}          <- share this one with your players
+Public:
+  https://${DOMAIN}             <- the launcher, links to all four
+  https://stocks.${DOMAIN}      (synthetic data)
+  https://fitness.${DOMAIN}     (synthetic data)
+  https://dnd.${DOMAIN}         <- share this one with your players
+  https://fantasy.${DOMAIN}     (basic auth: user 'moneyhole')
 
 Private (your devices only, real data):
   https://\$(tailscale status --json | grep -o '"DNSName":"[^"]*' | head -1 | cut -d'"' -f4 | sed 's/\.$//')
