@@ -2,3 +2,4 @@
 backups/
 imports/
 .healthcheck-state
+.healthcheck-report.json

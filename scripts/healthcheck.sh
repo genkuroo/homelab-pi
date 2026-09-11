@@ -240,8 +240,36 @@ fi
 section "Summary"
 printf 'ok=%d warn=%d fail=%d\n' "$OK_COUNT" "$WARN_COUNT" "$FAIL_COUNT"
 
+case $STATUS in
+	0) CUR_STATE="ok" ;;
+	1) CUR_STATE="warn" ;;
+	2) CUR_STATE="fail" ;;
+esac
+
 # ---------------------------------------------------------------------------
-# 8. Discord alert -- only on a CHANGE of state, not every run.
+# 8. Write a machine-readable report -- this is what sleeper-bot's /health
+# command reads (bind-mounted read-only into its container; see
+# docker-compose.yml). Written every run regardless of whether Discord
+# alerting is configured, so /health works independently of it.
+# ---------------------------------------------------------------------------
+REPORT_FILE="${HEALTHCHECK_REPORT_FILE:-/opt/homelab/.healthcheck-report.json}"
+python3 - "$REPORT_FILE" "$CUR_STATE" "$OK_COUNT" "$WARN_COUNT" "$FAIL_COUNT" "${PROBLEMS[@]}" <<'PYEOF' 2>/dev/null || true
+import json, sys, time
+path, status, ok, warn, fail, *problems = sys.argv[1:]
+report = {
+	"status": status,
+	"ok": int(ok),
+	"warn": int(warn),
+	"fail": int(fail),
+	"problems": problems,
+	"generated_at": int(time.time()),
+}
+with open(path, "w") as f:
+	json.dump(report, f)
+PYEOF
+
+# ---------------------------------------------------------------------------
+# 9. Discord alert -- only on a CHANGE of state, not every run.
 #
 # This runs hourly. If it messaged Discord on every run where something was
 # wrong, one lingering issue (a disk-space warning, say) would ping the
@@ -258,11 +286,6 @@ printf 'ok=%d warn=%d fail=%d\n' "$OK_COUNT" "$WARN_COUNT" "$FAIL_COUNT"
 # reading .env can act as the bot anywhere else in the server.
 # ---------------------------------------------------------------------------
 STATE_FILE="${HEALTHCHECK_STATE_FILE:-/opt/homelab/.healthcheck-state}"
-case $STATUS in
-	0) CUR_STATE="ok" ;;
-	1) CUR_STATE="warn" ;;
-	2) CUR_STATE="fail" ;;
-esac
 # The problem list, not just the ok/warn/fail label, is part of "did anything
 # change" -- otherwise swapping one failure for a different one would look
 # identical to the state file and get silently swallowed.

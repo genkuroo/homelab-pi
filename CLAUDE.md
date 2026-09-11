@@ -71,6 +71,12 @@ not contain application code — it orchestrates five sibling repos in
   treats braces as placeholders even inside a backtick string, so the injected
   button is styled with an inline `style="..."` attribute, never a `<style>`
   block.
+- **`.healthcheck-report.json` must exist as a file before `sleeper-bot` is
+  created.** It's bind-mounted read-only into the container so `/health` can
+  read it; if nothing is at that path yet, Docker creates a *directory* there
+  instead, and every later `scripts/healthcheck.sh` run silently fails to
+  write its report. `bootstrap.sh` touches it before `docker compose up` for
+  exactly this reason — don't drop that line.
 
 ## Conventions
 

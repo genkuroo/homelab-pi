@@ -194,6 +194,13 @@ services:
       - FFTA_SITE_URL=${FFTA_SITE_URL:-https://fantasy.${DOMAIN}}
     volumes:
       - sleeper_bot_data:/data
+      # Read-only, for /health. scripts/healthcheck.sh (run by
+      # homelab-healthcheck.timer, on the HOST, not in a container) writes
+      # this file hourly -- it needs the Docker socket, sudo and systemctl to
+      # do its job, none of which this container has or should. The file must
+      # already exist on the host before this container starts, or Docker
+      # creates a directory at this path instead of a file bind mount.
+      - ./.healthcheck-report.json:/data/healthcheck-report.json:ro
     networks: [analytics]
 
 networks:

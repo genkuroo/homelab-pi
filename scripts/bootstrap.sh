@@ -54,6 +54,13 @@ for t in stock-refresh stock-tldr ffta-sync ffta-values ffta-r2-sync homelab-bac
 	sudo systemctl enable --now "${t}.timer"
 done
 
+# Docker bind-mounts sleeper-bot's healthcheck-report.json as a specific
+# FILE. If nothing exists there yet when the container is created, Docker
+# creates a directory at that path instead -- and every later run of
+# healthcheck.sh silently fails to write its report. The timer just enabled
+# won't fire for up to an hour, so this can't wait for it.
+touch .healthcheck-report.json
+
 echo "==> Building and starting the stack"
 docker compose up -d --build
 
