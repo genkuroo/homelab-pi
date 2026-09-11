@@ -27,6 +27,7 @@ set +a
 
 STATUS=0            # highest severity seen: 0 ok, 1 warn, 2 fail
 OK_COUNT=0; WARN_COUNT=0; FAIL_COUNT=0
+PROBLEMS=()         # every warn()/fail() message, for the Discord alert body
 
 # Colors only when attached to a terminal -- a cron/systemd log shouldn't
 # fill up with escape codes.
@@ -37,8 +38,8 @@ else
 fi
 
 ok()      { OK_COUNT=$((OK_COUNT + 1));   printf '%s[ OK ]%s %s\n'   "$C_OK"   "$C_RESET" "$1"; }
-warn()    { WARN_COUNT=$((WARN_COUNT + 1)); (( STATUS < 1 )) && STATUS=1; printf '%s[WARN]%s %s\n' "$C_WARN" "$C_RESET" "$1"; }
-fail()    { FAIL_COUNT=$((FAIL_COUNT + 1)); STATUS=2; printf '%s[FAIL]%s %s\n' "$C_FAIL" "$C_RESET" "$1"; }
+warn()    { WARN_COUNT=$((WARN_COUNT + 1)); (( STATUS < 1 )) && STATUS=1; PROBLEMS+=("⚠️ $1"); printf '%s[WARN]%s %s\n' "$C_WARN" "$C_RESET" "$1"; }
+fail()    { FAIL_COUNT=$((FAIL_COUNT + 1)); STATUS=2; PROBLEMS+=("🔴 $1"); printf '%s[FAIL]%s %s\n' "$C_FAIL" "$C_RESET" "$1"; }
 section() { printf '\n== %s ==\n' "$1"; }
 
 # ---------------------------------------------------------------------------
@@ -238,4 +239,63 @@ fi
 # ---------------------------------------------------------------------------
 section "Summary"
 printf 'ok=%d warn=%d fail=%d\n' "$OK_COUNT" "$WARN_COUNT" "$FAIL_COUNT"
+
+# ---------------------------------------------------------------------------
+# 8. Discord alert -- only on a CHANGE of state, not every run.
+#
+# This runs hourly. If it messaged Discord on every run where something was
+# wrong, one lingering issue (a disk-space warning, say) would ping the
+# channel 24 times a day until fixed -- worse than useless, since the second
+# ping teaches you nothing the first didn't and trains you to ignore all of
+# them. So it remembers the last state it reported in a small local file and
+# only speaks up when today's result differs from that: healthy -> broken,
+# broken -> healthy, or the specific set of things that are broken changes.
+# Silent, correct hours in between produce no message at all.
+#
+# DISCORD_ALERT_WEBHOOK is optional -- unset, this section just does nothing.
+# A webhook (not the bot token) is deliberately what's stored here: it can
+# only ever post to the one channel it was created for, so nothing gained by
+# reading .env can act as the bot anywhere else in the server.
+# ---------------------------------------------------------------------------
+STATE_FILE="${HEALTHCHECK_STATE_FILE:-/opt/homelab/.healthcheck-state}"
+case $STATUS in
+	0) CUR_STATE="ok" ;;
+	1) CUR_STATE="warn" ;;
+	2) CUR_STATE="fail" ;;
+esac
+# The problem list, not just the ok/warn/fail label, is part of "did anything
+# change" -- otherwise swapping one failure for a different one would look
+# identical to the state file and get silently swallowed.
+CUR_FINGERPRINT="$CUR_STATE:$(printf '%s' "${PROBLEMS[@]:-}" | md5sum | cut -d' ' -f1)"
+PREV_FINGERPRINT=""
+[[ -f "$STATE_FILE" ]] && PREV_FINGERPRINT="$(<"$STATE_FILE")"
+
+if [[ -n "${DISCORD_ALERT_WEBHOOK:-}" && "$CUR_FINGERPRINT" != "$PREV_FINGERPRINT" ]]; then
+	if [[ "$CUR_STATE" == "ok" ]]; then
+		# Only announce a recovery if we'd previously alerted on a problem --
+		# a fresh install with no state file yet shouldn't open with "recovered".
+		if [[ -n "$PREV_FINGERPRINT" ]]; then
+			MSG="🟢 **${DOMAIN}**: recovered -- all ${OK_COUNT} checks passing."
+		else
+			MSG=""
+		fi
+	else
+		ICON="⚠️"; [[ "$CUR_STATE" == "fail" ]] && ICON="🔴"
+		DETAIL="$(printf '%s\n' "${PROBLEMS[@]}")"
+		MSG="${ICON} **${DOMAIN}**: ${FAIL_COUNT} failing, ${WARN_COUNT} warning(s)
+${DETAIL}"
+	fi
+	if [[ -n "$MSG" ]]; then
+		PAYLOAD="$(python3 -c "import json,sys; print(json.dumps({'content': sys.argv[1][:1900]}))" "$MSG")"
+		# Deliberately doesn't call fail()/warn() here -- this has already
+		# printed its summary and decided its exit code, and a Discord hiccup
+		# is not the same thing as the stack being unhealthy.
+		if ! curl -sS -X POST "$DISCORD_ALERT_WEBHOOK" -H "Content-Type: application/json" \
+			-d "$PAYLOAD" >/dev/null 2>&1; then
+			echo "note: Discord alert failed to send" >&2
+		fi
+	fi
+fi
+printf '%s' "$CUR_FINGERPRINT" > "$STATE_FILE" 2>/dev/null || true
+
 exit "$STATUS"
