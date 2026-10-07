@@ -91,6 +91,18 @@ http://dnd.{$DOMAIN} {
 	}
 }
 
+# The CI/CD pipeline's deploy target — a disposable copy of dnd running
+# synthetic data (see dnd-campaign-tracker/docs/CICD_PLAN.md). Not behind
+# basic_auth: like dnd, it has its own login, and unlike fantasy its data is
+# fake, so there's nothing here worth protecting beyond that.
+http://dnd-staging.{$DOMAIN} {
+	encode gzip
+	import homelink
+	reverse_proxy dnd-staging:8080 {
+		import proxyhdr
+	}
+}
+
 # fantasy.{$DOMAIN} — the trade analyzer.
 #
 # The only public site behind a password. It shows real rosters and the real

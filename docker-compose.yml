@@ -43,7 +43,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     networks: [edge]
-    depends_on: [stock-demo, fitness-demo, dnd, ffta]
+    depends_on: [stock-demo, fitness-demo, dnd, dnd-staging, ffta]
 
   # Holds an outbound connection to Cloudflare. Because the tunnel dials out,
   # there is nothing to port-forward and the home IP never appears in DNS.
@@ -101,6 +101,24 @@ services:
       - SECRET_KEY=${DND_SECRET_KEY}
     volumes:
       - dnd_data:/data
+    networks: [edge]
+
+  # dnd-staging.${DOMAIN} — the CI/CD pipeline's deploy target (see
+  # dnd-campaign-tracker/docs/CICD_PLAN.md). Same image and build context as
+  # `dnd`, own volume, own secret key (so a staging session cookie is never
+  # valid against prod and vice versa). DEMO=1 seeds a synthetic campaign into
+  # the volume on first boot only (docker-entrypoint.sh) — same pattern as
+  # stock-demo/fitness-demo.
+  dnd-staging:
+    build: ../dnd-campaign-tracker
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+      - DND_DATA_DIR=/data
+      - SECRET_KEY=${DND_STAGING_SECRET_KEY}
+      - DEMO=1
+    volumes:
+      - dnd_staging_data:/data
     networks: [edge]
 
   # ---------------------------------------------------------------------
@@ -217,5 +235,6 @@ volumes:
   fitness_data:
   fitness_demo_data:
   dnd_data:
+  dnd_staging_data:
   ffta_data:
   sleeper_bot_data:
