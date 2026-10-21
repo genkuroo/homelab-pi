@@ -10,6 +10,11 @@
 # `docker compose ps` only tells you the process didn't crash -- it has no
 # way to know that. This script checks the things that would have caught it.
 #
+# It caught the same failure again on 2026-10-20, which led to the permanent
+# fix: containers now use fixed resolvers from docker/daemon.json instead of
+# inheriting the host's (see bootstrap.sh), so a host DNS hiccup no longer
+# reaches them. The DNS check below stays as a guard against regressions.
+#
 # Exit code doubles as a severity signal for cron/systemd/alerting later:
 #   0 = all clear, 1 = warnings only, 2 = at least one failure.
 
@@ -71,7 +76,7 @@ done
 # ---------------------------------------------------------------------------
 # 2. Per-container DNS: is the upstream resolver each container was handed at
 # startup actually answering right now? This is the exact check that would
-# have caught the 2026-09-10 outage automatically.
+# have caught the 2026-09-10 outage automatically (and did catch 2026-10-20).
 #
 # Docker bakes a container's resolver config into
 # /var/lib/docker/containers/<id>/resolv.conf at creation time and never
@@ -125,7 +130,15 @@ for svc in "${SERVICES[@]}"; do
 		dns_probe "$ip" || broken+="$ip "
 	done
 	if [[ -n "$broken" ]]; then
-		fail "$svc: DNS upstream not answering (${broken% }) -- restart the container to pick up a working resolver"
+		# Containers should all be on the pinned resolvers. Anything else
+		# means daemon.json is missing or Docker wasn't restarted after it
+		# changed; pinned resolvers failing means the Pi has no internet.
+		if [[ "$servers" == *100.100.100.100* || "$servers" == *fd7a:115c:a1e0::53* ]]; then
+			hint="container is on Tailscale DNS, not the pinned resolvers -- install docker/daemon.json and restart docker"
+		else
+			hint="the Pi likely has no internet access right now"
+		fi
+		fail "$svc: DNS upstream not answering (${broken% }) -- $hint"
 	else
 		ok "$svc: DNS upstream answering ($servers)"
 	fi

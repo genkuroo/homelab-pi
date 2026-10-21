@@ -36,8 +36,26 @@ fi
 echo "==> Installing Tailscale"
 if ! command -v tailscale >/dev/null; then
 	curl -fsSL https://tailscale.com/install.sh | sh
-	echo "    Run 'sudo tailscale up' and follow the login link."
+	echo "    Run 'sudo tailscale up --accept-dns=false' and follow the login link."
 fi
+
+echo "==> Pinning DNS so containers survive a Wi-Fi drop"
+# Two outages (2026-09-10, 2026-10-20) came from the same chain: Wi-Fi drops,
+# NetworkManager briefly writes an empty /etc/resolv.conf, Tailscale saves
+# that empty file as its upstream list, and 100.100.100.100 then fails every
+# lookup. Containers forward DNS to whatever the host used when they started,
+# so they all went deaf to the internet while the host itself recovered.
+#
+# Fix 1: containers use fixed public resolvers, independent of host DNS.
+# Fix 2: Tailscale stops rewriting /etc/resolv.conf, which ends the fight with
+#        NetworkManager. Nothing on the Pi needs MagicDNS names, and
+#        `tailscale serve` (below) works without it.
+if ! sudo cmp -s docker/daemon.json /etc/docker/daemon.json; then
+	sudo install -D -m 644 docker/daemon.json /etc/docker/daemon.json
+	sudo systemctl restart docker   # daemon.json is only read at startup
+fi
+sudo tailscale set --accept-dns=false 2>/dev/null \
+	|| echo "    Tailscale not logged in yet -- use 'sudo tailscale up --accept-dns=false'."
 
 echo "==> Reducing SD card wear"
 # Every SQLite write updates an inode access time otherwise. On a card that is

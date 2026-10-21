@@ -263,6 +263,12 @@ the offseason is its busiest trading window.
   There is no OAuth callback to configure: `strava.enabled` is `false` (Strava
   paywalled its API in June 2026), and even the disabled API connector
   authenticates with a `refresh_token` grant, which uses no redirect URI.
+- **Container DNS is pinned, on purpose.** `docker/daemon.json` (installed by
+  `bootstrap.sh`) points every container at 1.1.1.1 and 9.9.9.9, and Tailscale
+  runs with `--accept-dns=false` on the Pi. Without both, a brief Wi-Fi drop
+  can leave Tailscale's resolver with an empty upstream list. Every container
+  then fails DNS lookups while still showing "Up", which happened twice
+  (2026-09-10, 2026-10-20) before this fix.
 - **`DND_SECRET_KEY` must be stable.** Regenerating it on deploy logs every
   player out.
 - **`sleeper_bot_data` is production state.** It is the only thing stopping the

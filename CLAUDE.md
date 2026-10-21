@@ -77,6 +77,14 @@ not contain application code — it orchestrates five sibling repos in
   instead, and every later `scripts/healthcheck.sh` run silently fails to
   write its report. `bootstrap.sh` touches it before `docker compose up` for
   exactly this reason — don't drop that line.
+- **Don't re-enable Tailscale DNS on the Pi or drop `docker/daemon.json`.**
+  With `accept-dns` on, NetworkManager and Tailscale fight over
+  `/etc/resolv.conf`; after a Wi-Fi drop Tailscale can snapshot an empty file
+  as its upstream list, and every container (which forwards DNS to
+  `100.100.100.100`) goes deaf while `docker compose ps` still says "Up".
+  Restarting containers only hides it. The pinned resolvers in
+  `docker/daemon.json` are the fix; editing that file needs
+  `sudo systemctl restart docker` to take effect.
 
 ## Conventions
 
