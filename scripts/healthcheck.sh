@@ -302,7 +302,15 @@ STATE_FILE="${HEALTHCHECK_STATE_FILE:-/opt/homelab/.healthcheck-state}"
 # The problem list, not just the ok/warn/fail label, is part of "did anything
 # change" -- otherwise swapping one failure for a different one would look
 # identical to the state file and get silently swallowed.
-CUR_FINGERPRINT="$CUR_STATE:$(printf '%s' "${PROBLEMS[@]:-}" | md5sum | cut -d' ' -f1)"
+#
+# The list is sorted first because its order isn't stable: it follows
+# `docker compose config --services`, which returns services in a different
+# order on every run. Unsorted, the same 12 failures looked "new" every hour
+# and re-alerted all night during the 2026-10-20 outage
+# (docs/incidents/2026-10-20-container-dns-repeat.md). An empty list hashes
+# exactly as before, so deploying this doesn't fire a false "recovered".
+CUR_FINGERPRINT="$CUR_STATE:$( (( ${#PROBLEMS[@]} )) && printf '%s\n' "${PROBLEMS[@]}" | sort; true; )"
+CUR_FINGERPRINT="${CUR_FINGERPRINT%%:*}:$(printf '%s' "${CUR_FINGERPRINT#*:}" | md5sum | cut -d' ' -f1)"
 PREV_FINGERPRINT=""
 [[ -f "$STATE_FILE" ]] && PREV_FINGERPRINT="$(<"$STATE_FILE")"
 
