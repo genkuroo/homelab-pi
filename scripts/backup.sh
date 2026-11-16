@@ -65,12 +65,30 @@ done
 
 # The D&D tracker keeps a folder of per-campaign databases plus uploaded avatar
 # and map images, so it gets an archive of the whole volume rather than a
-# single-file snapshot.
+# single-file snapshot. Same rule as above, though: every .db inside goes
+# through sqlite3's backup API first (a plain tar of a live database can catch
+# a torn page), and everything else is copied as-is. The archive's layout is
+# unchanged, so a restore is still: untar into the volume.
 if docker compose ps --status running --services | grep -qx dnd; then
-	docker run --rm \
-		-v homelab_dnd_data:/data:ro \
-		-v "$DEST:/backup" \
-		alpine tar czf "/backup/dnd-${STAMP}.tar.gz" -C /data .
+	docker compose exec -T dnd python -c "
+import os, sqlite3, tarfile, tempfile
+with tempfile.TemporaryDirectory() as snap, tarfile.open('/tmp/_dnd.tar.gz', 'w:gz') as tar:
+    for root, _, files in os.walk('/data'):
+        for f in files:
+            src = os.path.join(root, f)
+            rel = os.path.relpath(src, '/data')
+            if f.endswith('.db'):
+                copy = os.path.join(snap, rel.replace(os.sep, '__'))
+                s, d = sqlite3.connect(src), sqlite3.connect(copy)
+                with d:
+                    s.backup(d)
+                d.close(); s.close()
+                tar.add(copy, arcname='./' + rel)
+            else:
+                tar.add(src, arcname='./' + rel)
+"
+	docker compose cp dnd:/tmp/_dnd.tar.gz "$DEST/dnd-${STAMP}.tar.gz"
+	docker compose exec -T dnd rm -f /tmp/_dnd.tar.gz
 	echo "backed up dnd -> $DEST/dnd-${STAMP}.tar.gz"
 fi
 

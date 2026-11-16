@@ -29,10 +29,11 @@ not contain application code — it orchestrates five sibling repos in
   spams a real Discord channel, so treat the store as production data.
 - **The Pi boots from an SD card and the backups live on it.** `/opt/homelab/backups`
   is on the same device as the live databases, so a card failure takes both.
-  `ffta-r2-sync` is the mitigation: it copies the analyzer's backups to
-  Cloudflare R2 nightly. It uploads **ffta only** — the same folder holds real
-  bodyweight history and real stock holdings, and those stay in the house.
-  Do not widen the `--include` filter without asking.
+  `ffta-r2-sync` is the mitigation: it copies the analyzer's and the D&D
+  tracker's backups to Cloudflare R2 nightly (`ffta/` and `dnd/` in the bucket;
+  D&D added 2026-11-14, with Ethan's OK). It uploads **those two only** — the
+  same folder holds real bodyweight history and real stock holdings, and those
+  stay in the house. Do not widen the filters without asking.
 - **`ffta_data` holds one thing that cannot be rebuilt.** Its league data can
   always be re-synced from Sleeper, but its daily market-value snapshots
   cannot: FantasyCalc serves current values only and has no history endpoint.

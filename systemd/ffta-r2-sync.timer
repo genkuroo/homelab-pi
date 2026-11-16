@@ -11,7 +11,7 @@
 # should happen at next boot rather than be skipped.
 
 [Unit]
-Description=Ship ff-trade-analyzer backups off the SD card nightly
+Description=Ship ff-trade-analyzer and D&D backups off the SD card nightly
 
 [Timer]
 OnCalendar=*-*-* 04:15

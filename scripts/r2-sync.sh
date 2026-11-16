@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Ships the ff-trade-analyzer backups to a Cloudflare R2 bucket.
+# Ships the ff-trade-analyzer and D&D backups to a Cloudflare R2 bucket.
 #
 # Why this exists: the Pi boots from an SD card, and the nightly backups land on
 # that same card. If it fails, the live database and every backup go together.
@@ -9,13 +9,16 @@
 # and has no history endpoint, so a lost snapshot is lost permanently. That is
 # the half worth getting off the device.
 #
-# Deliberately ffta only. The same folder holds real bodyweight history and real
-# stock holdings, and those stay in the house.
+# The D&D tracker's campaigns are the other thing nothing could rebuild: they're
+# my players' sessions, notes and maps, typed in by hand. Added 2026-11-14.
+#
+# Deliberately those two only. The same folder holds real bodyweight history and
+# real stock holdings, and those stay in the house.
 #
 # Local backups are pruned at 14 days; this uses `rclone copy`, which never
 # deletes at the destination, so R2 is the long archive and the card is just the
 # recent working copy. At roughly a megabyte a night that is a few hundred MB a
-# year against a 10 GB free tier.
+# year (plus ~0.5 MB a night for D&D) against a 10 GB free tier.
 #
 #   ./scripts/r2-sync.sh          upload anything new
 #   ./scripts/r2-sync.sh verify   show what is actually in the bucket
@@ -28,7 +31,8 @@ cd "$(dirname "$0")/.."
 [ -f .env ] && set -a && . ./.env && set +a
 
 SRC="${BACKUP_DIR:-/opt/homelab/backups}"
-PREFIX="${R2_PREFIX:-ffta}"
+PREFIX="${R2_PREFIX:-ffta}"         # ffta's folder in the bucket (historical name)
+DND_PREFIX="${R2_DND_PREFIX:-dnd}"
 IMAGE="${RCLONE_IMAGE:-rclone/rclone:latest}"
 
 if [ -z "${R2_ACCOUNT_ID:-}" ] || [ -z "${R2_ACCESS_KEY_ID:-}" ] ||
@@ -67,20 +71,32 @@ run_rclone() {
 		"$IMAGE" "$@"
 }
 
+# name|folder in the bucket|files to send
+SETS=(
+	"ffta|${PREFIX}|ffta-*.db.gz"
+	"dnd|${DND_PREFIX}|dnd-*.tar.gz"
+)
+
 if [ "${1:-upload}" = "verify" ]; then
-	echo "objects in r2://${R2_BUCKET}/${PREFIX}:"
-	run_rclone lsl "R2:${R2_BUCKET}/${PREFIX}" | sort -k4 | tail -20
-	echo
-	run_rclone size "R2:${R2_BUCKET}/${PREFIX}"
+	for set in "${SETS[@]}"; do
+		IFS='|' read -r _ prefix _ <<<"$set"
+		echo "objects in r2://${R2_BUCKET}/${prefix}:"
+		run_rclone lsl "R2:${R2_BUCKET}/${prefix}" | sort -k4 | tail -20
+		echo
+		run_rclone size "R2:${R2_BUCKET}/${prefix}"
+		echo
+	done
 	exit 0
 fi
 
-echo "uploading ffta backups -> r2://${R2_BUCKET}/${PREFIX}"
-run_rclone copy /backup "R2:${R2_BUCKET}/${PREFIX}" \
-	--include 'ffta-*.db.gz' \
-	--no-traverse \
-	--stats-one-line \
-	--stats 0
-
-count=$(run_rclone lsf "R2:${R2_BUCKET}/${PREFIX}" | wc -l | tr -d ' ')
-echo "done — ${count} snapshot(s) archived off-device"
+for set in "${SETS[@]}"; do
+	IFS='|' read -r name prefix pattern <<<"$set"
+	echo "uploading ${name} backups -> r2://${R2_BUCKET}/${prefix}"
+	run_rclone copy /backup "R2:${R2_BUCKET}/${prefix}" \
+		--include "$pattern" \
+		--no-traverse \
+		--stats-one-line \
+		--stats 0
+	count=$(run_rclone lsf "R2:${R2_BUCKET}/${prefix}" | wc -l | tr -d ' ')
+	echo "done — ${count} ${name} snapshot(s) archived off-device"
+done

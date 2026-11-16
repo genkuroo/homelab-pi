@@ -206,15 +206,17 @@ documented in `.env.example`; getting it wrong produces a silent 401.
 ### Off-site backup
 
 Most of this stack can be rebuilt after a total loss: Sleeper still has the
-transactions, yfinance still has the prices. One thing cannot. The trade
+transactions, yfinance still has the prices. Two things cannot. The trade
 analyzer's daily market-value snapshots come from an API that serves current
 values only and has no history endpoint, so a snapshot that is lost is gone for
 good — and a season of them is what makes "grade this October trade at October's
-prices" possible instead of hindsight.
+prices" possible instead of hindsight. And the D&D tracker's campaigns are my
+players' sessions, notes and maps, typed in by hand; no API has a copy.
 
-So `ffta-r2-sync` ships that one database to a Cloudflare R2 bucket nightly at
-04:15. It uploads **only** `ffta-*.db.gz`: the same folder holds real bodyweight
-history and real stock holdings, and those deliberately never leave the Pi.
+So `ffta-r2-sync` ships those two to a Cloudflare R2 bucket nightly at 04:15:
+`ffta-*.db.gz` to `ffta/` and `dnd-*.tar.gz` to `dnd/` (D&D added 2026-11-14).
+Nothing else: the same folder holds real bodyweight history and real stock
+holdings, and those deliberately never leave the Pi.
 
 `rclone` runs in a throwaway container and is configured entirely through
 environment variables, so no config file is written and no secret appears in a
@@ -253,9 +255,10 @@ the offseason is its busiest trading window.
   SSD is strongly preferred. On a card, the nightly backup is what stands
   between you and silent data loss — and until recently that backup was on the
   same card, which is no backup at all against the failure it was defending
-  against. `ffta-r2-sync` now copies the one irreplaceable database off the
-  device nightly (see below); everything else is still card-only and would have
-  to be re-fetched from source after a failure.
+  against. `ffta-r2-sync` now copies the two irreplaceable data sets (the
+  analyzer's value snapshots and the D&D campaigns) off the device nightly (see
+  below); everything else is still card-only and would have to be re-fetched
+  from source after a failure.
 - **Fitness data arrives by file upload, not by API.** Every enabled source
   (`strava_csv`, `mynetdiary`, `liftoff`) reads an export dropped into
   `imports/`, so ingestion happens through the dashboard's `/upload` — which is

@@ -5,7 +5,7 @@
 # token should never make the nightly backup itself look like it failed.
 
 [Unit]
-Description=Copy ff-trade-analyzer backups to Cloudflare R2
+Description=Copy ff-trade-analyzer and D&D backups to Cloudflare R2
 Requires=docker.service
 After=docker.service network-online.target
 Wants=network-online.target
